@@ -1,0 +1,58 @@
+trigger:
+- main
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  buildConfiguration: 'Release'
+  webApiProject: 'WebApi/WebApi.csproj'
+  testProject: 'Tests/Tests.csproj'
+
+steps:
+- task: UseDotNet@2
+  displayName: 'Install .NET SDK'
+  inputs:
+    packageType: 'sdk'
+    version: '10.0.x'   # Byt till korrekt version om du inte är på .NET 10 ännu
+
+- task: DotNetCoreCLI@2
+  displayName: 'Restore'
+  inputs:
+    command: 'restore'
+    projects: |
+      $(webApiProject)
+      $(testProject)
+
+- task: DotNetCoreCLI@2
+  displayName: 'Build'
+  inputs:
+    command: 'build'
+    projects: |
+      $(webApiProject)
+      $(testProject)
+    arguments: '--configuration $(buildConfiguration)'
+
+- task: DotNetCoreCLI@2
+  displayName: 'Run Tests'
+  inputs:
+    command: 'test'
+    projects: '$(testProject)'
+    arguments: '--configuration $(buildConfiguration) --no-build'
+
+- task: DotNetCoreCLI@2
+  displayName: 'Publish WebApi'
+  inputs:
+    command: 'publish'
+    projects: '$(webApiProject)'
+    arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)'
+    zipAfterPublish: true
+
+- task: AzureRmWebAppDeployment@5
+  displayName: 'Deploy to Azure Web App'
+  inputs:
+    ConnectionType: 'AzureRM'
+    azureSubscription: 'Microsoft Partner Network(9183a4a7-6ecb-41ab-83a7-26f704b5a24e)'
+    appType: 'apiApp'
+    WebAppName: 'accountmanagementservice-kyh'
+    packageForLinux: '$(Build.ArtifactStagingDirectory)/**/*.zip'
